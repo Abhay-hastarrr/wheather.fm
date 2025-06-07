@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import SongCard from "./components/SongCard";
 import WeatherCard from "./components/WeatherCard";
+import logo from "./assets/logo.png";
 
 function App() {
   const [city, setCity] = useState("");
@@ -61,12 +62,12 @@ function App() {
       const weatherDesc = data.weather[0].description.toLowerCase();
       const windSpeed = data.wind.speed;
       const timeOfDay = new Date().getHours() >= 6 && new Date().getHours() < 18 ? "day" : "night";
-      
+
       // Initialize mood and energy levels
       let mood = "";
       let energy = "";
       let atmosphere = "";
-      
+
       // Set mood based on weather condition
       if (weatherMain === "Clear") {
         mood = timeOfDay === "day" ? "happy uplifting" : "dreamy ambient";
@@ -107,7 +108,7 @@ function App() {
         energy = "catchy rhythm";
         atmosphere = timeOfDay === "day" ? "daytime hits" : "evening vibes";
       }
-      
+
       // Combine the mood elements
       let query = `${mood} ${energy} ${atmosphere}`;
 
@@ -166,16 +167,16 @@ function App() {
           Authorization: `Bearer ${accessToken}`,
         },
       });
-      
+
       // Post-process results for better relevance
       const tracks = musicRes.data.tracks.items;
-      
+
       // Filter out tracks with no preview URLs if possible (better user experience)
       const tracksWithPreview = tracks.filter(track => track.preview_url);
-      
+
       // Apply popularity filter
       let filteredTracks = tracksWithPreview.length >= 6 ? tracksWithPreview : tracks;
-      
+
       if (popularity !== "all") {
         filteredTracks = filteredTracks.filter(track => {
           const popularityScore = track.popularity;
@@ -184,16 +185,16 @@ function App() {
           if (popularity === "lesser-known" && popularityScore < 50) return true;
           return false;
         });
-        
+
         // If no tracks match popularity filter, use all tracks
         if (filteredTracks.length === 0) {
           filteredTracks = tracksWithPreview.length >= 6 ? tracksWithPreview : tracks;
         }
       }
-      
+
       // Store query for potential reuse
       setLastQuery(query);
-      
+
       // Limit to 6 most relevant tracks
       setSongs(filteredTracks.slice(0, 6));
 
@@ -208,7 +209,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-4 transition-all duration-500">
-      <h1 className="text-4xl font-bold text-indigo-700 mb-6">Weather.fm</h1>
+      <h1 className="font-bold text-indigo-600">
+        <img src={logo} alt="Logo" className="w-50 h-40" />
+      </h1>
 
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-4">
         <input
@@ -256,7 +259,7 @@ function App() {
             </select>
           </div>
         </div>
-        
+
         {/* Popularity Filter */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -265,41 +268,37 @@ function App() {
           <div className="flex space-x-3">
             <button
               onClick={() => setPopularity("all")}
-              className={`px-3 py-1 rounded ${
-                popularity === "all" 
-                  ? "bg-indigo-600 text-white" 
+              className={`px-3 py-1 rounded ${popularity === "all"
+                  ? "bg-indigo-600 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+                }`}
             >
               All
             </button>
             <button
               onClick={() => setPopularity("mainstream")}
-              className={`px-3 py-1 rounded ${
-                popularity === "mainstream" 
-                  ? "bg-indigo-600 text-white" 
+              className={`px-3 py-1 rounded ${popularity === "mainstream"
+                  ? "bg-indigo-600 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+                }`}
             >
               Mainstream
             </button>
             <button
               onClick={() => setPopularity("popular")}
-              className={`px-3 py-1 rounded ${
-                popularity === "popular" 
-                  ? "bg-indigo-600 text-white" 
+              className={`px-3 py-1 rounded ${popularity === "popular"
+                  ? "bg-indigo-600 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+                }`}
             >
               Popular
             </button>
             <button
               onClick={() => setPopularity("lesser-known")}
-              className={`px-3 py-1 rounded ${
-                popularity === "lesser-known" 
-                  ? "bg-indigo-600 text-white" 
+              className={`px-3 py-1 rounded ${popularity === "lesser-known"
+                  ? "bg-indigo-600 text-white"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
+                }`}
             >
               Lesser Known
             </button>
@@ -337,7 +336,7 @@ function App() {
           <p className="text-gray-600 mb-2">
             No songs found with the current filters. Try changing your filters.
           </p>
-          <button 
+          <button
             onClick={() => {
               setSelectedGenre("all");
               setSelectedLanguage("all");
