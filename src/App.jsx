@@ -10,10 +10,10 @@ function App() {
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedGenre, setSelectedGenre] = useState("all");
-  const [selectedLanguage, setSelectedLanguage] = useState("all");
-  const [lastQuery, setLastQuery] = useState("");
-  const [popularity, setPopularity] = useState("all"); // Filter for song popularity
+
+  // Default: Bollywood & Hindi
+  const [selectedGenre, setSelectedGenre] = useState("bollywood");
+  const [selectedLanguage, setSelectedLanguage] = useState("hi");
 
   // Available genres for filter
   const genres = [
@@ -46,8 +46,10 @@ function App() {
 
   const getWeatherAndMusic = async () => {
     if (!city.trim()) return;
+
     setLoading(true);
     setError("");
+
     try {
       // Fetch weather data
       const weatherRes = await axios.get(
@@ -56,83 +58,65 @@ function App() {
       const data = weatherRes.data;
       setWeather(data);
 
-      // Create more refined mood mappings based on weather conditions and temperature
       const temp = data.main.temp;
       const weatherMain = data.weather[0].main;
       const weatherDesc = data.weather[0].description.toLowerCase();
       const windSpeed = data.wind.speed;
       const timeOfDay = new Date().getHours() >= 6 && new Date().getHours() < 18 ? "day" : "night";
 
-      // Initialize mood and energy levels
       let mood = "";
       let energy = "";
-      let atmosphere = "";
+      let theme = "";
 
-      // Set mood based on weather condition
+      // Enhanced lyrical & emotional mood mapping
       if (weatherMain === "Clear") {
-        mood = timeOfDay === "day" ? "happy uplifting" : "dreamy ambient";
-        energy = temp > 25 ? "energetic summer" : "bright cheerful";
-        atmosphere = windSpeed > 5 ? "free spirited" : "relaxed positive";
+        mood = timeOfDay === "day" ? "uplifting hopeful" : "dreamy nostalgic";
+        energy = temp > 25 ? "vibrant summer vibes" : "cheerful daylight";
+        theme = windSpeed > 5 ? "adventurous journey" : "calm positivity";
       } else if (weatherMain === "Clouds") {
-        if (weatherDesc.includes("scattered") || weatherDesc.includes("few")) {
-          mood = "mellow light";
-          energy = "chill medium-tempo";
-        } else {
-          mood = "thoughtful introspective";
-          energy = "lofi downtempo";
-        }
-        atmosphere = timeOfDay === "day" ? "productive focus" : "evening relax";
-      } else if (weatherMain === "Rain" || weatherMain === "Drizzle") {
-        if (weatherDesc.includes("light")) {
-          mood = "melancholic gentle";
-          energy = "soft acoustic";
-        } else {
-          mood = "deep emotional";
-          energy = "slow ballad";
-        }
-        atmosphere = "rainy day comfort";
+        mood = "contemplative thoughtful";
+        energy = "chill lofi beats";
+        theme = timeOfDay === "day" ? "reflective work hours" : "peaceful night";
+      } else if (["Rain", "Drizzle"].includes(weatherMain)) {
+        mood = "melancholic introspective";
+        energy = "emotional ballads";
+        theme = "rainy day reflection";
       } else if (weatherMain === "Thunderstorm") {
-        mood = "dramatic intense";
-        energy = "powerful epic";
-        atmosphere = "stormy passionate";
+        mood = "intense dramatic";
+        energy = "powerful rock anthems";
+        theme = "passionate emotions";
       } else if (weatherMain === "Snow") {
-        mood = "peaceful serene";
-        energy = temp < 0 ? "quiet minimal" : "light gentle";
-        atmosphere = "winter cozy";
-      } else if (weatherMain === "Mist" || weatherMain === "Fog") {
-        mood = "mysterious ambient";
-        energy = "atmospheric ethereal";
-        atmosphere = "foggy moody";
+        mood = "serene peaceful";
+        energy = "soft winter melodies";
+        theme = "cozy holiday feel";
+      } else if (["Mist", "Fog"].includes(weatherMain)) {
+        mood = "mysterious moody";
+        energy = "slow ambient";
+        theme = "quiet mystery";
       } else {
         mood = "popular trending";
         energy = "catchy rhythm";
-        atmosphere = timeOfDay === "day" ? "daytime hits" : "evening vibes";
+        theme = timeOfDay === "day" ? "top hits" : "evening chill";
       }
 
-      // Combine the mood elements
-      let query = `${mood} ${energy} ${atmosphere}`;
+      let query = `${mood} ${energy} ${theme}`;
 
-      // Add genre to query if selected with appropriate weighting
+      // Always include Bollywood in query when selected
       if (selectedGenre !== "all") {
-        // Add genre as a primary search term for stronger filtering
         query = `${selectedGenre} ${query}`;
       }
 
-      // Add language filter if selected (will be used in market parameter)
-      let market = "US";
-      if (selectedLanguage !== "all") {
-        // Map language codes to Spotify market codes
-        const marketMap = {
-          en: "US", // English: United States
-          hi: "IN", // Hindi: India
-          es: "ES", // Spanish: Spain
-          fr: "FR", // French: France
-          de: "DE", // German: Germany
-          ko: "KR", // Korean: South Korea
-          ja: "JP", // Japanese: Japan
-        };
-        market = marketMap[selectedLanguage] || "US";
-      }
+      // Market code mapping
+      const marketMap = {
+        en: "US",
+        hi: "IN", // Hindi → India
+        es: "ES",
+        fr: "FR",
+        de: "DE",
+        ko: "KR",
+        ja: "JP",
+      };
+      const market = selectedLanguage !== "all" ? marketMap[selectedLanguage] || "US" : "US";
 
       // Get Spotify access token
       const tokenRes = await axios.post(
@@ -154,51 +138,29 @@ function App() {
 
       const accessToken = tokenRes.data.access_token;
 
-      // Add additional Spotify API parameters for better recommendations
+      // Search Spotify
       const musicRes = await axios.get("https://api.spotify.com/v1/search", {
         params: {
           q: query,
           type: "track",
-          limit: 12,  // Get more tracks initially
-          market: market,
-          include_external: "audio",  // Include preview URLs when available
+          limit: 12,
+          market,
+          include_external: "audio",
         },
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
       });
 
-      // Post-process results for better relevance
-      const tracks = musicRes.data.tracks.items;
+      let tracks = musicRes.data.tracks.items;
+      let tracksWithPreview = tracks.filter(track => track.preview_url);
 
-      // Filter out tracks with no preview URLs if possible (better user experience)
-      const tracksWithPreview = tracks.filter(track => track.preview_url);
-
-      // Apply popularity filter
-      let filteredTracks = tracksWithPreview.length >= 6 ? tracksWithPreview : tracks;
-
-      if (popularity !== "all") {
-        filteredTracks = filteredTracks.filter(track => {
-          const popularityScore = track.popularity;
-          if (popularity === "mainstream" && popularityScore >= 80) return true;
-          if (popularity === "popular" && popularityScore >= 50 && popularityScore < 80) return true;
-          if (popularity === "lesser-known" && popularityScore < 50) return true;
-          return false;
-        });
-
-        // If no tracks match popularity filter, use all tracks
-        if (filteredTracks.length === 0) {
-          filteredTracks = tracksWithPreview.length >= 6 ? tracksWithPreview : tracks;
-        }
+      // Prefer previewable tracks; fallback to top tracks if not enough
+      if (tracksWithPreview.length >= 6) {
+        tracks = tracksWithPreview;
       }
 
-      // Store query for potential reuse
-      setLastQuery(query);
-
-      // Limit to 6 most relevant tracks
-      setSongs(filteredTracks.slice(0, 6));
-
-      setSongs(musicRes.data.tracks.items);
+      setSongs(tracks.slice(0, 6));
     } catch (err) {
       console.error(err);
       setError("Failed to fetch song recommendations.");
@@ -207,12 +169,21 @@ function App() {
     }
   };
 
+  // Debounce input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (city.trim()) {
+        getWeatherAndMusic();
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [city, selectedGenre, selectedLanguage]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col items-center justify-center p-4 transition-all duration-500">
       <h1 className="font-bold text-indigo-600">
         <img src={logo} alt="Logo" className="w-50 h-40" />
       </h1>
-
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-4">
         <input
           type="text"
@@ -221,90 +192,34 @@ function App() {
           onChange={(e) => setCity(e.target.value)}
           className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
         />
-
         <div className="grid grid-cols-2 gap-4 mb-4">
           {/* Genre Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Genre
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
             <select
               value={selectedGenre}
               onChange={(e) => setSelectedGenre(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
             >
               {genres.map((genre) => (
-                <option key={genre.id} value={genre.id}>
-                  {genre.name}
-                </option>
+                <option key={genre.id} value={genre.id}>{genre.name}</option>
               ))}
             </select>
           </div>
-
           {/* Language Filter */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Language
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
             <select
               value={selectedLanguage}
               onChange={(e) => setSelectedLanguage(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
             >
               {languages.map((language) => (
-                <option key={language.id} value={language.id}>
-                  {language.name}
-                </option>
+                <option key={language.id} value={language.id}>{language.name}</option>
               ))}
             </select>
           </div>
         </div>
-
-        {/* Popularity Filter */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Popularity
-          </label>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setPopularity("all")}
-              className={`px-3 py-1 rounded ${popularity === "all"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setPopularity("mainstream")}
-              className={`px-3 py-1 rounded ${popularity === "mainstream"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              Mainstream
-            </button>
-            <button
-              onClick={() => setPopularity("popular")}
-              className={`px-3 py-1 rounded ${popularity === "popular"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              Popular
-            </button>
-            <button
-              onClick={() => setPopularity("lesser-known")}
-              className={`px-3 py-1 rounded ${popularity === "lesser-known"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
-            >
-              Lesser Known
-            </button>
-          </div>
-        </div>
-
         <button
           onClick={getWeatherAndMusic}
           disabled={loading}
@@ -312,17 +227,13 @@ function App() {
         >
           {loading ? "Loading..." : "Get Music"}
         </button>
-
         {error && <p className="text-red-500">{error}</p>}
       </div>
 
       {weather && <WeatherCard weather={weather} />}
-
       {songs.length > 0 && (
         <div className="mt-6 w-full max-w-5xl">
-          <h2 className="text-2xl font-semibold text-indigo-700 mb-4">
-            Recommended Songs
-          </h2>
+          <h2 className="text-2xl font-semibold text-indigo-700 mb-4">Recommended Songs</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {songs.map((song) => (
               <SongCard key={song.id} song={song} />
@@ -333,19 +244,16 @@ function App() {
 
       {songs.length === 0 && !loading && weather && (
         <div className="mt-6 text-center">
-          <p className="text-gray-600 mb-2">
-            No songs found with the current filters. Try changing your filters.
-          </p>
+          <p className="text-gray-600 mb-2">No songs found. Try changing the city or filters.</p>
           <button
             onClick={() => {
-              setSelectedGenre("all");
-              setSelectedLanguage("all");
-              setPopularity("all");
+              setSelectedGenre("bollywood");
+              setSelectedLanguage("hi");
               getWeatherAndMusic();
             }}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
           >
-            Reset Filters
+            Reset to Bollywood
           </button>
         </div>
       )}
