@@ -1,17 +1,30 @@
 const SongCard = ({ song }) => {
+  const destination = song.externalUrl || song.external_urls?.spotify || "#";
+  const sourceLabel = song.source === "itunes" ? "iTunes" : song.source === "youtube" ? "YouTube" : "YouTube";
+  const imageUrl = song.album.images[0]?.url;
+
   return (
     <a
-      href={song.external_urls.spotify}
+      href={destination}
       target="_blank"
       rel="noopener noreferrer"
       className="block bg-white rounded-2xl shadow-lg overflow-hidden h-full transition-all duration-300 border-2 border-slate-100 group-hover:border-orange-200"
     >
       <div className="relative overflow-hidden">
-        <img
-          src={song.album.images[0]?.url || "https://i.scdn.co/image/ab67616d0000b273f7db43292a6a99b21f31a35e"}
-          alt={song.name}
-          className="w-full h-52 object-cover transition-transform duration-500 group-hover:scale-110"
-        />
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={song.name}
+            className="w-full h-52 object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+        ) : (
+          <div className="w-full h-52 bg-gradient-to-br from-orange-500 via-rose-500 to-red-500 flex items-center justify-center text-white">
+            <div className="text-center px-6">
+              <div className="text-sm font-semibold uppercase tracking-[0.3em] opacity-80 mb-2">{sourceLabel}</div>
+              <div className="text-2xl font-bold leading-tight">No artwork available</div>
+            </div>
+          </div>
+        )}
         {/* Gradient overlay on hover */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         
@@ -31,6 +44,9 @@ const SongCard = ({ song }) => {
         </h3>
         <p className="text-sm text-slate-500 truncate font-medium">
           {song.artists.map((a) => a.name).join(", ")}
+        </p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mt-2">
+          {sourceLabel}
         </p>
         
         {/* Album name */}

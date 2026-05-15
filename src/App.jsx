@@ -14,6 +14,7 @@ function App() {
   // Default: Bollywood & Hindi
   const [selectedGenre, setSelectedGenre] = useState("bollywood");
   const [selectedLanguage, setSelectedLanguage] = useState("hi");
+  const [selectedSource, setSelectedSource] = useState("youtube");
 
   // Available genres for filter
   const genres = [
@@ -44,6 +45,124 @@ function App() {
     { id: "ja", name: "Japanese" },
   ];
 
+  const marketMap = {
+    en: "US",
+    hi: "IN",
+    es: "ES",
+    fr: "FR",
+    de: "DE",
+    ko: "KR",
+    ja: "JP",
+  };
+
+  const buildMusicQuery = (weatherData) => {
+    const temp = weatherData.main.temp;
+    const weatherMain = weatherData.weather[0].main;
+    const windSpeed = weatherData.wind.speed;
+    const timeOfDay = new Date().getHours() >= 6 && new Date().getHours() < 18 ? "day" : "night";
+
+    let mood = "";
+    let energy = "";
+    let theme = "";
+
+    if (weatherMain === "Clear") {
+      mood = timeOfDay === "day" ? "uplifting hopeful" : "dreamy nostalgic";
+      energy = temp > 25 ? "vibrant summer vibes" : "cheerful daylight";
+      theme = windSpeed > 5 ? "adventurous journey" : "calm positivity";
+    } else if (weatherMain === "Clouds") {
+      mood = "contemplative thoughtful";
+      energy = "chill lofi beats";
+      theme = timeOfDay === "day" ? "reflective work hours" : "peaceful night";
+    } else if (["Rain", "Drizzle"].includes(weatherMain)) {
+      mood = "melancholic introspective";
+      energy = "emotional ballads";
+      theme = "rainy day reflection";
+    } else if (weatherMain === "Thunderstorm") {
+      mood = "intense dramatic";
+      energy = "powerful rock anthems";
+      theme = "passionate emotions";
+    } else if (weatherMain === "Snow") {
+      mood = "serene peaceful";
+      energy = "soft winter melodies";
+      theme = "cozy holiday feel";
+    } else if (["Mist", "Fog"].includes(weatherMain)) {
+      mood = "mysterious moody";
+      energy = "slow ambient";
+      theme = "quiet mystery";
+    } else {
+      mood = "popular trending";
+      energy = "catchy rhythm";
+      theme = timeOfDay === "day" ? "top hits" : "evening chill";
+    }
+
+    let query = `${mood} ${energy} ${theme}`;
+
+    if (selectedGenre !== "all") {
+      query = `${selectedGenre} ${query}`;
+    }
+
+    return query;
+  };
+
+  const normalizeItunesResults = (items) =>
+    items.map((item) => ({
+      id: String(item.trackId),
+      name: item.trackName,
+      artists: [{ name: item.artistName }],
+      album: {
+        name: item.collectionName || "",
+        images: [{ url: item.artworkUrl100?.replace("100x100bb", "600x600bb") }],
+      },
+      source: "itunes",
+      externalUrl: item.trackViewUrl,
+      preview_url: item.previewUrl,
+    }));
+
+  const fetchFallbackMusic = async (query, country) => {
+    const response = await axios.get("https://itunes.apple.com/search", {
+      params: {
+        term: query,
+        media: "music",
+        entity: "song",
+        limit: 12,
+        country,
+        explicit: "Yes",
+      },
+    });
+
+    return normalizeItunesResults(response.data.results || []);
+  };
+
+  // Spotify integration removed; use YouTube or iTunes only.
+
+  const fetchYouTubeMusic = (query) => {
+    const searchVariants = [
+      "official audio",
+      "music video",
+      "lyrics",
+      "live",
+      "topic",
+      "remix",
+    ];
+
+    return searchVariants.map((variant, index) => {
+      const searchQuery = `${query} ${variant}`;
+
+      return {
+        id: `youtube-${index}-${searchQuery}`,
+        name: `${query} - ${variant}`,
+        artists: [{ name: "YouTube Search" }],
+        album: {
+          name: "YouTube recommendations",
+          images: [],
+        },
+        source: "youtube",
+        externalUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`,
+        preview_url: null,
+      };
+    });
+  };
+
   const getWeatherAndMusic = async () => {
     if (!city.trim()) return;
 
@@ -58,109 +177,21 @@ function App() {
       const data = weatherRes.data;
       setWeather(data);
 
-      const temp = data.main.temp;
-      const weatherMain = data.weather[0].main;
-      const weatherDesc = data.weather[0].description.toLowerCase();
-      const windSpeed = data.wind.speed;
-      const timeOfDay = new Date().getHours() >= 6 && new Date().getHours() < 18 ? "day" : "night";
-
-      let mood = "";
-      let energy = "";
-      let theme = "";
-
-      // Enhanced lyrical & emotional mood mapping
-      if (weatherMain === "Clear") {
-        mood = timeOfDay === "day" ? "uplifting hopeful" : "dreamy nostalgic";
-        energy = temp > 25 ? "vibrant summer vibes" : "cheerful daylight";
-        theme = windSpeed > 5 ? "adventurous journey" : "calm positivity";
-      } else if (weatherMain === "Clouds") {
-        mood = "contemplative thoughtful";
-        energy = "chill lofi beats";
-        theme = timeOfDay === "day" ? "reflective work hours" : "peaceful night";
-      } else if (["Rain", "Drizzle"].includes(weatherMain)) {
-        mood = "melancholic introspective";
-        energy = "emotional ballads";
-        theme = "rainy day reflection";
-      } else if (weatherMain === "Thunderstorm") {
-        mood = "intense dramatic";
-        energy = "powerful rock anthems";
-        theme = "passionate emotions";
-      } else if (weatherMain === "Snow") {
-        mood = "serene peaceful";
-        energy = "soft winter melodies";
-        theme = "cozy holiday feel";
-      } else if (["Mist", "Fog"].includes(weatherMain)) {
-        mood = "mysterious moody";
-        energy = "slow ambient";
-        theme = "quiet mystery";
-      } else {
-        mood = "popular trending";
-        energy = "catchy rhythm";
-        theme = timeOfDay === "day" ? "top hits" : "evening chill";
-      }
-
-      let query = `${mood} ${energy} ${theme}`;
-
-      // Always include Bollywood in query when selected
-      if (selectedGenre !== "all") {
-        query = `${selectedGenre} ${query}`;
-      }
-
-      // Market code mapping
-      const marketMap = {
-        en: "US",
-        hi: "IN", // Hindi → India
-        es: "ES",
-        fr: "FR",
-        de: "DE",
-        ko: "KR",
-        ja: "JP",
-      };
+      const query = buildMusicQuery(data);
       const market = selectedLanguage !== "all" ? marketMap[selectedLanguage] || "US" : "US";
 
-      // Get Spotify access token
-      const tokenRes = await axios.post(
-        "https://accounts.spotify.com/api/token",
-        new URLSearchParams({
-          grant_type: "client_credentials",
-        }),
-        {
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Authorization:
-              "Basic " +
-              btoa(
-                `${import.meta.env.VITE_SPOTIFY_CLIENT_ID}:${import.meta.env.VITE_SPOTIFY_CLIENT_SECRET}`
-              ),
-          },
+      try {
+        if (selectedSource === "itunes") {
+          const itunesSongs = await fetchFallbackMusic(query, market);
+          setSongs(itunesSongs.slice(0, 6));
+        } else {
+          // default: YouTube (or explicit "youtube")
+          setSongs(fetchYouTubeMusic(query).slice(0, 6));
         }
-      );
-
-      const accessToken = tokenRes.data.access_token;
-
-      // Search Spotify
-      const musicRes = await axios.get("https://api.spotify.com/v1/search", {
-        params: {
-          q: query,
-          type: "track",
-          limit: 12,
-          market,
-          include_external: "audio",
-        },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      let tracks = musicRes.data.tracks.items;
-      let tracksWithPreview = tracks.filter(track => track.preview_url);
-
-      // Prefer previewable tracks; fallback to top tracks if not enough
-      if (tracksWithPreview.length >= 6) {
-        tracks = tracksWithPreview;
+      } catch (musicErr) {
+        console.error(musicErr);
+        setError("Failed to fetch song recommendations.");
       }
-
-      setSongs(tracks.slice(0, 6));
     } catch (err) {
       console.error(err);
       setError("Failed to fetch song recommendations.");
@@ -177,7 +208,7 @@ function App() {
       }
     }, 600);
     return () => clearTimeout(timer);
-  }, [city, selectedGenre, selectedLanguage]);
+  }, [city, selectedGenre, selectedLanguage, selectedSource]);
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -260,6 +291,37 @@ function App() {
 
               {/* Filters */}
               <div className="space-y-5 mb-8">
+                {/* Music Source */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-3 uppercase tracking-wider">
+                    Music Source
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSource("itunes")}
+                      className={`px-4 py-4 rounded-xl border-2 text-sm font-semibold transition-all duration-300 ${
+                        selectedSource === "itunes"
+                          ? "border-orange-400 bg-orange-50 text-orange-700 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      iTunes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSource("youtube")}
+                      className={`px-4 py-4 rounded-xl border-2 text-sm font-semibold transition-all duration-300 ${
+                        selectedSource === "youtube"
+                          ? "border-red-400 bg-red-50 text-red-700 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      YouTube
+                    </button>
+                  </div>
+                </div>
+
                 {/* Genre Filter */}
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-3 uppercase tracking-wider">
