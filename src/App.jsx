@@ -183,7 +183,9 @@ function App() {
       try {
         if (selectedSource === "itunes") {
           const itunesSongs = await fetchFallbackMusic(query, market);
-          setSongs(itunesSongs.slice(0, 6));
+          const itunesWithPreview = itunesSongs.filter((s) => s.preview_url);
+          const tracks = itunesWithPreview.length >= 6 ? itunesWithPreview : itunesSongs;
+          setSongs(tracks.slice(0, 6));
         } else {
           // default: YouTube (or explicit "youtube")
           setSongs(fetchYouTubeMusic(query).slice(0, 6));
