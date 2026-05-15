@@ -182,10 +182,34 @@ function App() {
 
       try {
         if (selectedSource === "itunes") {
-          const itunesSongs = await fetchFallbackMusic(query, market);
+          let itunesSongs = await fetchFallbackMusic(query, market);
+
+          // If iTunes returns no results for the complex query, try simpler fallbacks
+          if (!itunesSongs || itunesSongs.length === 0) {
+            const weatherMain = data.weather[0]?.main || "";
+            const weatherDescWord = (data.weather[0]?.description || "").split(" ")[0] || "";
+            const simpleCandidates = [];
+            if (selectedGenre && selectedGenre !== "all") simpleCandidates.push(selectedGenre);
+            if (weatherMain) simpleCandidates.push(weatherMain);
+            if (weatherDescWord) simpleCandidates.push(weatherDescWord);
+
+            for (const candidate of simpleCandidates) {
+              const tryResults = await fetchFallbackMusic(candidate, market);
+              if (tryResults && tryResults.length > 0) {
+                itunesSongs = tryResults;
+                break;
+              }
+            }
+          }
+
           const itunesWithPreview = itunesSongs.filter((s) => s.preview_url);
           const tracks = itunesWithPreview.length >= 6 ? itunesWithPreview : itunesSongs;
-          setSongs(tracks.slice(0, 6));
+          if (!tracks || tracks.length === 0) {
+            setError("No iTunes matches found — try a different genre or use YouTube.");
+            setSongs([]);
+          } else {
+            setSongs(tracks.slice(0, 6));
+          }
         } else {
           // default: YouTube (or explicit "youtube")
           setSongs(fetchYouTubeMusic(query).slice(0, 6));
